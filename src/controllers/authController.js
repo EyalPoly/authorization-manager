@@ -13,17 +13,17 @@ class AuthController {
         throw error;
       }
 
-      const token = await authService.createToken(firebaseToken);
+      const jwt = await authService.createToken(firebaseToken);
 
-      logger.info("Token created", { token });
+      logger.info("JWT created", { jwt });
 
       return res
         .status(200)
-        .cookie("access_token", token, {
+        .cookie("access_token", jwt, {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
         })
-        .json({ success: true, message: "Token created"});
+        .json({ success: true, message: "JWT created" });
     } catch (err) {
       next(err);
     }

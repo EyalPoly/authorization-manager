@@ -38,9 +38,16 @@ describe("Auth Controller", () => {
       expect(res.status).toBe(200);
       expect(res.body).toEqual({
         success: true,
-        message: "Token created",
-        token: "test-token",
+        message: "JWT created",
       });
+
+      const cookies = res.header["set-cookie"];
+      expect(cookies).toBeDefined();
+      const accessTokenCookie = cookies.find((cookie) =>
+        cookie.startsWith("access_token=")
+      );
+      expect(accessTokenCookie).toBeDefined();
+      expect(accessTokenCookie).toContain("test-token");
     });
 
     it("should return 401 when no token is provided", async () => {
