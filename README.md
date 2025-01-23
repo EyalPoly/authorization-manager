@@ -1,2 +1,2 @@
-# attend-me-auth-service
-AttendMe Auth-Service
+# Authorization Manager
+AttendMe authorization service
