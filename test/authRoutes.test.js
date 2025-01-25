@@ -1,8 +1,6 @@
 const request = require("supertest");
-const { createApp } = require("../server");
+const express = require("express");
 const authController = require("../src/controllers/authController");
-
-const app = createApp();
 
 jest.mock("../src/controllers/authController");
 
@@ -14,6 +12,10 @@ jest.mock("@eyal-poly/shared-logger", () => ({
     error: jest.fn(),
   }),
 }));
+
+const app = express();
+app.use(express.json());
+app.post("/api/v1/auth/token", authController.createToken);
 
 describe("Auth Routes", () => {
   beforeEach(() => {

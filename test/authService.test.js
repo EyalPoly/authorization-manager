@@ -1,5 +1,6 @@
 const AuthService = require("../src/services/authService");
 const jwt = require("jsonwebtoken");
+const secretConfigService = require("../src/services/secretConfigService");
 
 jest.mock("jsonwebtoken", () => ({
   decode: jest.fn(),
@@ -15,13 +16,15 @@ jest.mock("@eyal-poly/shared-logger", () => ({
   }),
 }));
 
-describe("AuthService Tests", () => {
-  beforeAll(() => {
-    process.env.JWT_SECRET = "test-secret";
-  });
+jest.mock("../src/services/secretConfigService", () => ({
+  get: jest.fn(),
+}));
 
+describe("AuthService Tests", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+
+    secretConfigService.get.mockReturnValue("test-secret");
   });
 
   describe("createToken", () => {
@@ -48,6 +51,15 @@ describe("AuthService Tests", () => {
       await expect(
         AuthService.createToken("test-firebase-token")
       ).rejects.toThrow("Invalid Firebase token");
+    });
+
+    it("should throw error if JWT secret is not found", async () => {
+      jwt.decode.mockReturnValue({ uid: "test-uid" });
+      secretConfigService.get.mockReturnValue(null);
+
+      await expect(
+        AuthService.createToken("test-firebase-token")
+      ).rejects.toThrow("JWT secret not found");
     });
   });
 });
