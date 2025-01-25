@@ -6,7 +6,7 @@ export default [
   // Apply common configurations to all JavaScript files
   {
     rules: {
-      "no-unused-vars": ["warning", { argsIgnorePattern: "^_" }],
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
     },
     files: ["**/*.js"],
     languageOptions: {
