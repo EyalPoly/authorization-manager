@@ -1,5 +1,6 @@
 const request = require("supertest");
 const { createApp } = require("../server");
+const secretConfigService = require("../src/services/secretConfigService");
 
 jest.mock("../src/routes/authRoutes", () => {
   const express = require("express");
@@ -25,17 +26,19 @@ jest.mock("@eyal-poly/shared-logger", () => ({
   }),
 }));
 
+jest.mock("../src/services/secretConfigService", () => {
+  return {
+    loadSecrets: jest.fn(),
+  };
+});
+
 let app;
 
-beforeAll(() => {
-  app = createApp();
+beforeEach(async () => {
+  app = await createApp();
 });
 
 afterEach(() => {
-  jest.clearAllMocks();
-});
-
-afterAll(() => {
   jest.clearAllMocks();
 });
 
@@ -66,6 +69,10 @@ describe("Server Tests", () => {
 
       expect(res.status).toBe(404);
       expect(res.body).toEqual({ error: "Route not found" });
+    });
+
+    it("should load secrets", async () => {
+      expect(secretConfigService.loadSecrets).toHaveBeenCalledTimes(1);
     });
   });
 });

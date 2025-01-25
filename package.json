@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@eyal-poly/secret-config": "^1.1.1",
     "@eyal-poly/shared-logger": "^1.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
