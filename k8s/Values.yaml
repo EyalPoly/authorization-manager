@@ -1,0 +1,25 @@
+replicaCount: 2
+
+image:
+  repository: your-registry/authorization-manager
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+resources:
+  limits:
+    cpu: 300m
+    memory: 512Mi
+  requests:
+    cpu: 150m
+    memory: 256Mi
+
+env:
+  JWT_SECRET_NAME_POSTFIX: "JWT_SECRET"
+  NODE_ENV: "development"
+  LOG_LEVEL: "info"
+  PORT: "3000"

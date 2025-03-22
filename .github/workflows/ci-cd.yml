@@ -32,3 +32,194 @@ jobs:
         env:
           JWT_SECRET_NAME_POSTFIX: test-postfix
         run: npm test
+
+  build:
+    needs: linter-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Generate build timestamp
+        id: timestamp
+        run: echo "::set-output name=timestamp::$(date +'%Y%m%d%H%M%S')"
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: false
+          load: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/authmanager:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/authmanager:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/authmanager:${{ steps.timestamp.outputs.timestamp }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  push:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Generate build timestamp
+        id: timestamp
+        run: echo "::set-output name=timestamp::$(date +'%Y%m%d%H%M%S')"
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/authmanager:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/authmanager:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/authmanager:${{ steps.timestamp.outputs.timestamp }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # deploy:
+  #   needs: push
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v3
+
+  #     - name: Install OCI CLI
+  #       run: |
+  #         curl -L -O https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
+  #         chmod +x install.sh
+  #         ./install.sh --accept-all-defaults
+  #         echo "$HOME/bin" >> $GITHUB_PATH
+
+  #     - name: Configure OCI CLI
+  #       run: |
+  #         mkdir -p ~/.oci
+  #         echo "${{ secrets.OCI_CONFIG }}" > ~/.oci/config
+  #         echo "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/key.pem
+  #         chmod 600 ~/.oci/key.pem
+  #         chmod 600 ~/.oci/config
+
+  #     - name: Set up SSH key
+  #       run: |
+  #         mkdir -p ~/.ssh
+  #         echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+  #         chmod 600 ~/.ssh/id_rsa
+  #         ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
+
+  #     - name: Setup kubectl
+  #       uses: azure/setup-kubectl@v3
+
+  #     - name: Setup kubeconfig
+  #       run: |
+  #         mkdir -p ~/.kube
+  #         echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
+  #         chmod 600 ~/.kube/config
+
+  #     - name: Create Bastion session and deploy
+  #       run: |
+  #         # Create a bastion session
+  #         echo "Creating bastion session..."
+
+  #         SESSION_ID=$(oci bastion session create-port-forwarding \
+  #           --bastion-id "${{ secrets.BASTION_ID }}" \
+  #           --display-name "github-actions-deploy-$(date +%s)" \
+  #           --ssh-public-key-file ~/.ssh/id_rsa.pub \
+  #           --target-private-ip "${{ secrets.K3S_MASTER_IP }}" \
+  #           --target-port 6443 \
+  #           --query 'data.id' \
+  #           --raw-output)
+
+  #         echo "Created bastion session: $SESSION_ID"
+
+  #         # Wait for session to become active
+  #         echo "Waiting for session to become active..."
+  #         while true; do
+  #           STATE=$(oci bastion session get --session-id "$SESSION_ID" --query 'data."lifecycle-state"' --raw-output)
+  #           echo "Session state: $STATE"
+  #           if [ "$STATE" == "ACTIVE" ]; then
+  #             break
+  #           elif [ "$STATE" == "FAILED" ]; then
+  #             echo "Session creation failed"
+  #             exit 1
+  #           fi
+  #           sleep 10
+  #         done
+
+  #         # Build the connection string based on your format
+  #         BASTION_HOST="host.bastion.il-jerusalem-1.oci.oraclecloud.com"
+  #         BASTION_PORT=22
+  #         SESSION_USERNAME="ocid1.bastionsession.oc1.il-jerusalem-1.$SESSION_ID"
+
+  #         echo "Creating SSH tunnel to $BASTION_HOST with session $SESSION_USERNAME"
+
+  #         # Start the SSH tunnel in the background, matching your connection format
+  #         # but changing the target port to 6443 (K3s API server) instead of 22
+  #         ssh -i ~/.ssh/id_rsa -N -L 6443:${{ secrets.K3S_MASTER_IP }}:6443 -p $BASTION_PORT $SESSION_USERNAME@$BASTION_HOST &
+  #         TUNNEL_PID=$!
+
+  #         echo "SSH tunnel started with PID: $TUNNEL_PID"
+
+  #         # Give the tunnel a moment to establish
+  #         echo "Waiting for tunnel to establish..."
+  #         sleep 15
+
+  #         # Check if tunnel is active
+  #         if ps -p $TUNNEL_PID > /dev/null; then
+  #           echo "SSH tunnel is active"
+  #         else
+  #           echo "SSH tunnel failed to establish"
+  #           exit 1
+  #         fi
+
+  #         # Deploy using Helm through the tunnel
+  #         echo "Deploying application with Helm..."
+
+  #         # Determine if this is a new installation or an upgrade
+  #         if helm list -n ${{ secrets.K8S_NAMESPACE }} | grep -q authmanager; then
+  #           # Update existing release
+  #           echo "Updating existing Helm release..."
+  #           helm upgrade authmanager /k8s \
+  #             --namespace ${{ secrets.K8S_NAMESPACE }} \
+  #             --set image.repository=${{ secrets.DOCKERHUB_USERNAME }}/authmanager \
+  #             --set image.tag=${{ github.sha }} \
+  #             --atomic \
+  #             --timeout 5m
+  #         else
+  #           # First-time installation
+  #           echo "Installing new Helm release..."
+  #           helm install authmanager ./helm \
+  #             --namespace ${{ secrets.K8S_NAMESPACE }} \
+  #             --create-namespace \
+  #             --set image.repository=${{ secrets.DOCKERHUB_USERNAME }}/authmanager \
+  #             --set image.tag=${{ github.sha }} \
+  #             --atomic \
+  #             --timeout 5m
+  #         fi
+
+  #         # Terminate the SSH tunnel
+  #         echo "Terminating SSH tunnel..."
+  #         kill $TUNNEL_PID
+
+  #         # Terminate the bastion session
+  #         echo "Terminating bastion session..."
+  #         oci bastion session delete --session-id "$SESSION_ID" --force
