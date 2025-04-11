@@ -1,0 +1,15 @@
+apiVersion: v1
+entries:
+  authorization-manager:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2025-04-04T21:49:11.003659+03:00"
+    description: Authorization Manager microservice
+    digest: 6059f5ab7d3e26db84189637851a4b6c9a99e859a9de44b65ca6608e6f175600
+    name: authorization-manager
+    type: application
+    urls:
+    - charts/authorization-manager-0.1.0.tgz
+    version: 0.1.0
+generated: "2025-04-04T21:49:11+03:00"
+serverInfo: {}
