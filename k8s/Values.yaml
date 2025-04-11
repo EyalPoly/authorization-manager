@@ -1,7 +1,7 @@
 replicaCount: 2
 
 image:
-  repository: eyalpoly/authmanager
+  repository: eyalpoly/authorization-manager
   tag: latest
   pullPolicy: Always
 

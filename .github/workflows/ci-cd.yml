@@ -226,38 +226,11 @@ jobs:
               # Install/upgrade the Helm chart with worker node selector
               CHART_VERSION=$(helm search repo attendme-charts/authorization-manager -l | grep authorization-manager | head -n 1 | awk '{print $2}')
               
-              cat > /tmp/worker-values.yaml << 'EOV'
-              nodeSelector:
-                node-role.kubernetes.io/control-plane: null
-              
-              affinity:
-                nodeAffinity:
-                  requiredDuringSchedulingIgnoredDuringExecution:
-                    nodeSelectorTerms:
-                    - matchExpressions:
-                      - key: node-role.kubernetes.io/control-plane
-                        operator: DoesNotExist
-              
-              # Use this to distribute pods across your worker nodes
-              podAntiAffinity:
-                preferredDuringSchedulingIgnoredDuringExecution:
-                - weight: 100
-                  podAffinityTerm:
-                    labelSelector:
-                      matchExpressions:
-                      - key: app.kubernetes.io/name
-                        operator: In
-                        values:
-                        - authmanager
-                    topologyKey: kubernetes.io/hostname
-              EOV
-              
               # Install with specific worker node targeting values
               helm upgrade --install authmanager attendme-charts/authorization-manager \
                 --version $CHART_VERSION \
                 --namespace authmanager \
                 --create-namespace \
-                --values /tmp/worker-values.yaml \
                 --wait
               
               # Verify the deployment was scheduled on worker nodes
