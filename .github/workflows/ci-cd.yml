@@ -97,6 +97,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
 
   deploy:
+    needs: push
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
@@ -118,6 +119,8 @@ jobs:
           echo "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/key.pem
           chmod 600 ~/.oci/key.pem
           chmod 600 ~/.oci/config
+          echo "oci_config_file="
+          cat ~/.oci/config
 
       - name: Set up SSH key
         run: |
