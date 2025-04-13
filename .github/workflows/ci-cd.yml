@@ -121,7 +121,6 @@ jobs:
           echo "tenancy=${{ secrets.OCI_TENANCY_OCID }}" >> ~/.oci/config
           echo "region=${{ secrets.OCI_REGION }}" >> ~/.oci/config
           echo "key_file=/home/runner/.oci/key.pem" >> ~/.oci/config
-          cat ~/.oci/config
 
           echo "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/key.pem
           chmod 600 ~/.oci/key.pem

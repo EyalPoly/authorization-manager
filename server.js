@@ -19,9 +19,9 @@ async function createApp() {
   return app;
 }
 
-function startServer() {
+async function startServer() {
   try {
-    const app = createApp();
+    const app = await createApp();
 
     const port = process.env.PORT || 3000;
     app.listen(port, () => {
