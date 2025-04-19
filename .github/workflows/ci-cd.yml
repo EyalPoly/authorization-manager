@@ -163,14 +163,15 @@ jobs:
             sleep 10
           done
 
+      - name: Create SSH tunnel to bastion
+        run: |
           # Build the connection string based on your format
           BASTION_HOST="host.bastion.il-jerusalem-1.oci.oraclecloud.com"
           BASTION_PORT=22
-          SESSION_USERNAME="ocid1.bastionsession.oc1.il-jerusalem-1.$SESSION_ID"
 
           echo "Creating SSH tunnel to $BASTION_HOST with session $SESSION_USERNAME"
 
-          ssh -i ~/.ssh/id_rsa -N -L 6443:${{ secrets.K3S_MASTER_IP }}:22 -p $BASTION_PORT $SESSION_USERNAME@$BASTION_HOST &
+          ssh -i ~/.ssh/id_rsa -N -L 6443:${{ secrets.K3S_MASTER_IP }}:22 -p $BASTION_PORT $SESSION_ID$BASTION_HOST &
           TUNNEL_PID=$!
 
           echo "SSH tunnel started with PID: $TUNNEL_PID"
@@ -188,11 +189,7 @@ jobs:
           fi
 
       - name: SSH to server and install Helm chart
-        run: |
-          # Check if tunnel is active
-          if ps -p $TUNNEL_PID > /dev/null; then
-            echo "SSH tunnel is active"
-            
+        run: |            
             # SSH to master node and perform the installation
             ssh -i ~/.ssh/id_rsa opc@$localhost << 'EOF'
               # Add your GitHub Pages repo
