@@ -194,16 +194,24 @@ jobs:
             echo "SSH tunnel is active"
             
             # SSH to master node and perform the installation
-            ssh -i ~/.ssh/id_rsa ${{ secrets.SSH_USER }}@${{ secrets.K3S_MASTER_IP }} << 'EOF'
+            ssh -i ~/.ssh/id_rsa opc@$localhost << 'EOF'
               # Add your GitHub Pages repo
               helm repo add attendme-charts https://eyalpoly.github.io/attendme-helm-charts/
               
               # Update Helm repositories
               helm repo update
               
-              # Install/upgrade the Helm chart with worker node selector
               CHART_VERSION=$(helm search repo attendme-charts/authorization-manager -l | grep authorization-manager | head -n 1 | awk '{print $2}')
-              
+
+              # Create service account for GCP
+
+              # Set up GitHub secrets to env variables
+              export NODE_ENV="DEV"
+              export JWT_SECRET_NAME_POSTFIX="${{ secrets.JWT_SECRET_NAME_POSTFIX }}"
+              export GOOGLE_CLOUD_PROJECT_ID="${{ secrets.GOOGLE_CLOUD_PROJECT_ID }}"
+              echo "${{ secrets.GCP_SERVICE_ACCOUNT_BASE64 }}" | base64 -d > /tmp/gcp-service-account.json
+              export GOOGLE_APPLICATION_CREDENTIALS="/tmp/gcp-service-account.json"
+
               helm upgrade --install authmanager attendme-charts/authorization-manager \
                 --version $CHART_VERSION \
                 --namespace authmanager \
