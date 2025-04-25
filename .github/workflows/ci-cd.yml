@@ -218,6 +218,8 @@ jobs:
               --dry-run=client -o yaml | kubectl apply -f -
             rm /tmp/gcp-creds.json
 
+            echo "Installing Helm chart..."
+
             helm upgrade --install authmanager attendme-charts/authorization-manager \
               --version $CHART_VERSION \
               --namespace authmanager \
