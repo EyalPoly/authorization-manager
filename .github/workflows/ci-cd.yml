@@ -227,7 +227,7 @@ jobs:
               --wait
             
             echo "Checking pod deployment..."
-            kubectl get pods -n authmanager -o wide | grep authmanager
+            sudo kubectl get pods -n authmanager -o wide | grep authmanager
           EOF
           then
             echo "SSH installation succeeded."
