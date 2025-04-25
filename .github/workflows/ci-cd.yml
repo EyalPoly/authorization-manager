@@ -170,9 +170,7 @@ jobs:
 
           echo "Creating SSH tunnel to $BASTION_HOST with session ID: $SESSION_ID"
 
-          echo "Command will be: ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -N -L 6443:[K3S_MASTER_IP]:22 -p 22 $SESSION_ID@$BASTION_HOST"
-
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -N -L 6443:${{ secrets.K3S_MASTER_IP }}:22 -p $BASTION_PORT $SESSION_ID@$BASTION_HOST &
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -N -L 6443:${{ secrets.K3S_MASTER_IP }}:22 -p 22 $SESSION_ID@$BASTION_HOST &
           TUNNEL_PID=$!
 
           echo "SSH tunnel started with PID: $TUNNEL_PID"
