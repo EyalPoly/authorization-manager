@@ -202,21 +202,21 @@ jobs:
             echo "Fetching latest chart version..."
             CHART_VERSION=$(helm search repo attendme-charts/authorization-manager -l | grep authorization-manager | head -n 1 | awk '{print $2}')
 
-            echo "Creating Kubernetes secrets..."
-
-            # JWT Secret
+            echo "Creating JWT secret..."
             kubectl create secret generic jwt-secret \
               --from-literal=secretNamePostfix="${{ secrets.JWT_SECRET_NAME_POSTFIX }}" \
               --namespace authmanager \
               --dry-run=client -o yaml | kubectl apply -f -
 
-            # GCP Service Account Credentials
+            echo "Creating GCP credentials secret..."
             echo "${{ secrets.GCP_SERVICE_ACCOUNT_BASE64 }}" | base64 -d > /tmp/gcp-creds.json
             kubectl create secret generic gcp-creds-secret \
               --from-file=gcp-service-account.json=/tmp/gcp-creds.json \
               --namespace authmanager \
               --dry-run=client -o yaml | kubectl apply -f -
             rm /tmp/gcp-creds.json
+
+            echo "Installing Helm chart..."
 
             helm upgrade --install authmanager attendme-charts/authorization-manager \
               --version $CHART_VERSION \
