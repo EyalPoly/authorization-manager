@@ -143,7 +143,7 @@ jobs:
             --display-name "github-actions-deploy-$(date +%s)" \
             --ssh-public-key-file ~/.ssh/id_rsa.pub \
             --target-private-ip "${{ secrets.K3S_MASTER_IP }}" \
-            --target-port 6443 \
+            --target-port 22 \
             --query 'data.id' \
             --raw-output)
 
@@ -170,7 +170,7 @@ jobs:
 
           echo "Creating SSH tunnel to $BASTION_HOST with session ID: $SESSION_ID"
 
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -N -L 6443:${{ secrets.K3S_MASTER_IP }}:6443 -p $BASTION_PORT $SESSION_ID@$BASTION_HOST &
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -N -L 6443:${{ secrets.K3S_MASTER_IP }}:22 -p $BASTION_PORT $SESSION_ID@$BASTION_HOST &
           TUNNEL_PID=$!
 
           echo "SSH tunnel started with PID: $TUNNEL_PID"
@@ -190,7 +190,7 @@ jobs:
       - name: SSH to server and install Helm chart
         run: |
           # SSH to master node and perform the installation
-          ssh -i ~/.ssh/id_rsa -p 22 opc@$localhost << 'EOF'
+          ssh -i ~/.ssh/id_rsa -p 6443 opc@localhost << 'EOF'
             set -e  # Exit immediately if a command fails
 
             echo "Connected via SSH"
