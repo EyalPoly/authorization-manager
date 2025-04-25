@@ -163,14 +163,15 @@ jobs:
             sleep 10
           done
 
+      - name: Create SSH tunnel to bastion
+        run: |
           # Build the connection string based on your format
           BASTION_HOST="host.bastion.il-jerusalem-1.oci.oraclecloud.com"
           BASTION_PORT=22
-          SESSION_USERNAME="ocid1.bastionsession.oc1.il-jerusalem-1.$SESSION_ID"
 
           echo "Creating SSH tunnel to $BASTION_HOST with session $SESSION_USERNAME"
 
-          ssh -i ~/.ssh/id_rsa -N -L 6443:${{ secrets.K3S_MASTER_IP }}:22 -p $BASTION_PORT $SESSION_USERNAME@$BASTION_HOST &
+          ssh -i ~/.ssh/id_rsa -N -L 6443:${{ secrets.K3S_MASTER_IP }}:22 -p $BASTION_PORT $SESSION_ID$BASTION_HOST &
           TUNNEL_PID=$!
 
           echo "SSH tunnel started with PID: $TUNNEL_PID"
@@ -189,51 +190,55 @@ jobs:
 
       - name: SSH to server and install Helm chart
         run: |
-          # Check if tunnel is active
-          if ps -p $TUNNEL_PID > /dev/null; then
-            echo "SSH tunnel is active"
+          # SSH to master node and perform the installation
+          ssh -i ~/.ssh/id_rsa -p 22 opc@$localhost << 'EOF'
+            set -e  # Exit immediately if a command fails
+
+            echo "Connected via SSH"
             
-            # SSH to master node and perform the installation
-            ssh -i ~/.ssh/id_rsa opc@$localhost << 'EOF'
-              # Add your GitHub Pages repo
-              helm repo add attendme-charts https://eyalpoly.github.io/attendme-helm-charts/
+            echo "Adding Helm repo..."
+            helm repo add attendme-charts https://eyalpoly.github.io/attendme-helm-charts/
+            helm repo update
               
-              # Update Helm repositories
-              helm repo update
-              
-              CHART_VERSION=$(helm search repo attendme-charts/authorization-manager -l | grep authorization-manager | head -n 1 | awk '{print $2}')
+            echo "Fetching latest chart version..."
+            CHART_VERSION=$(helm search repo attendme-charts/authorization-manager -l | grep authorization-manager | head -n 1 | awk '{print $2}')
 
-              # Create service account for GCP
+            echo "Creating Kubernetes secrets..."
 
-              # Set up GitHub secrets to env variables
-              export NODE_ENV="DEV"
-              export JWT_SECRET_NAME_POSTFIX="${{ secrets.JWT_SECRET_NAME_POSTFIX }}"
-              export GOOGLE_CLOUD_PROJECT_ID="${{ secrets.GOOGLE_CLOUD_PROJECT_ID }}"
-              echo "${{ secrets.GCP_SERVICE_ACCOUNT_BASE64 }}" | base64 -d > /tmp/gcp-service-account.json
-              export GOOGLE_APPLICATION_CREDENTIALS="/tmp/gcp-service-account.json"
+            # JWT Secret
+            kubectl create secret generic jwt-secret \
+              --from-literal=secretNamePostfix="${{ secrets.JWT_SECRET_NAME_POSTFIX }}" \
+              --namespace authmanager \
+              --dry-run=client -o yaml | kubectl apply -f -
 
-              helm upgrade --install authmanager attendme-charts/authorization-manager \
-                --version $CHART_VERSION \
-                --namespace authmanager \
-                --create-namespace \
-                --wait
-              
-              # Verify the deployment was scheduled on worker nodes
-              echo "Deployment pods are running on these nodes:"
-              kubectl get pods -n authmanager -o wide | grep authmanager
-              
-              # Clean up the values file
-              rm /tmp/worker-values.yaml
-            EOF
+            # GCP Service Account Credentials
+            echo "${{ secrets.GCP_SERVICE_ACCOUNT_BASE64 }}" | base64 -d > /tmp/gcp-creds.json
+            kubectl create secret generic gcp-creds-secret \
+              --from-file=gcp-service-account.json=/tmp/gcp-creds.json \
+              --namespace authmanager \
+              --dry-run=client -o yaml | kubectl apply -f -
+            rm /tmp/gcp-creds.json
+
+            helm upgrade --install authmanager attendme-charts/authorization-manager \
+              --version $CHART_VERSION \
+              --namespace authmanager \
+              --create-namespace \
+              --wait
+            
+            echo "Checking pod deployment..."
+            kubectl get pods -n authmanager -o wide | grep authmanager
+          EOF
+          then
+            echo "SSH installation succeeded."
           else
-            echo "SSH tunnel failed to establish"
+            echo "SSH connection or remote command failed!"
             exit 1
           fi
 
           # Terminate the SSH tunnel
           echo "Terminating SSH tunnel..."
-          kill $TUNNEL_PID
+          kill $TUNNEL_PID || true
 
           # Terminate the bastion session
           echo "Terminating bastion session..."
-          oci bastion session delete --session-id "$SESSION_ID" --force
+          oci bastion session delete --session-id "$SESSION_ID" --force || true
