@@ -147,8 +147,6 @@ jobs:
             --query 'data.id' \
             --raw-output)
 
-          echo "Created bastion session: $SESSION_ID"
-
           # Wait for session to become active
           echo "Waiting for session to become active..."
           while true; do
@@ -163,12 +161,16 @@ jobs:
             sleep 10
           done
 
+          echo "Created bastion session: $SESSION_ID"
+          echo "SESSION_ID=$SESSION_ID" >> $GITHUB_ENV
+
       - name: Create SSH tunnel to bastion
         run: |
           BASTION_HOST="host.bastion.il-jerusalem-1.oci.oraclecloud.com"
-          BASTION_PORT=22
 
           echo "Creating SSH tunnel to $BASTION_HOST with session ID: $SESSION_ID"
+
+          echo "Command will be: ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -N -L 6443:[K3S_MASTER_IP]:22 -p 22 $SESSION_ID@$BASTION_HOST"
 
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -N -L 6443:${{ secrets.K3S_MASTER_IP }}:22 -p $BASTION_PORT $SESSION_ID@$BASTION_HOST &
           TUNNEL_PID=$!
