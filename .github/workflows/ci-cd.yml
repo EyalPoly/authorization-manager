@@ -194,6 +194,8 @@ jobs:
             set -e  # Exit immediately if a command fails
 
             echo "Connected via SSH"
+
+            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
             
             echo "Adding Helm repo..."
             helm repo add attendme-charts https://eyalpoly.github.io/attendme-helm-charts/
@@ -201,24 +203,24 @@ jobs:
               
             echo "Fetching latest chart version..."
             CHART_VERSION=$(helm search repo attendme-charts/authorization-manager -l | grep authorization-manager | head -n 1 | awk '{print $2}')
+            echo "Latest chart version: $CHART_VERSION"
 
             echo "Creating JWT secret..."
-            kubectl create secret generic jwt-secret \
+            sudo kubectl create secret generic jwt-secret \
               --from-literal=secretNamePostfix="${{ secrets.JWT_SECRET_NAME_POSTFIX }}" \
               --namespace authmanager \
               --dry-run=client -o yaml | kubectl apply -f -
 
             echo "Creating GCP credentials secret..."
             echo "${{ secrets.GCP_SERVICE_ACCOUNT_BASE64 }}" | base64 -d > /tmp/gcp-creds.json
-            kubectl create secret generic gcp-creds-secret \
+            sudo kubectl create secret generic gcp-creds-secret \
               --from-file=gcp-service-account.json=/tmp/gcp-creds.json \
               --namespace authmanager \
               --dry-run=client -o yaml | kubectl apply -f -
             rm /tmp/gcp-creds.json
 
             echo "Installing Helm chart..."
-
-            helm upgrade --install authmanager attendme-charts/authorization-manager \
+            sudo helm upgrade --install authmanager attendme-charts/authorization-manager \
               --version $CHART_VERSION \
               --namespace authmanager \
               --create-namespace \
