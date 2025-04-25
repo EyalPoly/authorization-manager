@@ -190,7 +190,7 @@ jobs:
       - name: SSH to server and install Helm chart
         run: |
           # SSH to master node and perform the installation
-          ssh -i ~/.ssh/id_rsa -p 6443 opc@localhost << 'EOF'
+          if ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -p 6443 opc@localhost << EOF
             set -e  # Exit immediately if a command fails
 
             echo "Connected via SSH"
