@@ -194,14 +194,19 @@ jobs:
 
             echo "Connected via SSH"
 
+            if ! command -v helm &> /dev/null; then
+              echo "Installing Helm..."
+              curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+            fi
+
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
             
             echo "Adding Helm repo..."
-            sudo helm repo add attendme-charts https://eyalpoly.github.io/attendme-helm-charts/
-            sudo helm repo update
+            helm repo add attendme-charts https://eyalpoly.github.io/attendme-helm-charts/
+            helm repo update
               
             echo "Fetching latest chart version..."
-            CHART_VERSION=$(sudo helm search repo attendme-charts/authorization-manager -l | grep authorization-manager | head -n 1 | awk '{print $2}')
+            CHART_VERSION=$(helm search repo attendme-charts/authorization-manager -l | grep authorization-manager | head -n 1 | awk '{print $2}')
             echo "Latest chart version: $CHART_VERSION"
 
             echo "Creating JWT secret..."
@@ -219,7 +224,7 @@ jobs:
             rm /tmp/gcp-creds.json
 
             echo "Installing Helm chart..."
-            sudo helm upgrade --install authmanager attendme-charts/authorization-manager \
+            helm upgrade --install authmanager attendme-charts/authorization-manager \
               --version $CHART_VERSION \
               --namespace authmanager \
               --create-namespace \
