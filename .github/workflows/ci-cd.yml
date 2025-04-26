@@ -191,32 +191,13 @@ jobs:
 
       - name: SSH to server and install Helm chart
         run: |
-          if ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -p 6443 opc@localhost << EOF
+          if ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -p 6443 root@localhost << EOF
             set -e  # Exit immediately if a command fails
 
             echo "Connected via SSH"
 
-            # Get the actual home directory on remote server
-            REMOTE_HOME=$(pwd | grep ^/home/ | cut -d/ -f1-3)
-            if [ -z "$REMOTE_HOME" ]; then
-              REMOTE_HOME=~
-            fi
-            echo "Remote home directory: $REMOTE_HOME"
-             
-            # Find the correct way to access kubeconfig
-            if [ -f $REMOTE_HOME/.kube/config ]; then
-              echo "Using user's kubeconfig"
-              export KUBECONFIG=$REMOTE_HOME/.kube/config
-            elif sudo test -f /etc/rancher/k3s/k3s.yaml; then
-              echo "K3s config exists but needs sudo"
-              # Create a temporary copy with proper permissions
-              sudo cat /etc/rancher/k3s/k3s.yaml > $REMOTE_HOME/k3s-config-temp.yaml
-              chmod 600 $REMOTE_HOME/k3s-config-temp.yaml
-              export KUBECONFIG=$REMOTE_HOME/k3s-config-temp.yaml
-            else
-              echo "Could not locate usable kubeconfig"
-              exit 1
-            fi
+            KUBECTL="sudo /usr/local/bin/kubectl"
+            echo "Using kubectl command: $KUBECTL"
             
             echo "Adding Helm repo..."
             helm repo add attendme-charts https://eyalpoly.github.io/attendme-helm-charts/
@@ -227,17 +208,17 @@ jobs:
             echo "Latest chart version: \$CHART_VERSION"
 
             echo "Creating JWT secret..."
-            kubectl create secret generic jwt-secret \
+            $KUBECTL create secret generic jwt-secret \
               --from-literal=secretNamePostfix="${{ secrets.JWT_SECRET_NAME_POSTFIX }}" \
               --namespace authmanager \
-              --dry-run=client -o yaml | kubectl apply -f -
+              --dry-run=client -o yaml | $KUBECTL apply -f -
 
             echo "Creating GCP credentials secret..."
             echo "${{ secrets.GCP_SERVICE_ACCOUNT_BASE64 }}" | base64 -d > /tmp/gcp-creds.json
-            kubectl create secret generic gcp-creds-secret \
+            $KUBECTL create secret generic gcp-creds-secret \
               --from-file=gcp-service-account.json=/tmp/gcp-creds.json \
               --namespace authmanager \
-              --dry-run=client -o yaml | kubectl apply -f -
+              --dry-run=client -o yaml | $KUBECTL apply -f -
             rm /tmp/gcp-creds.json
 
             echo "Installing Helm chart..."
@@ -248,7 +229,7 @@ jobs:
               --wait
             
             echo "Checking pod deployment..."
-            kubectl get pods -n authmanager -o wide | grep authmanager
+            $KUBECTL get pods -n authmanager -o wide | grep authmanager
           EOF
           then
             echo "SSH installation succeeded."
