@@ -246,7 +246,7 @@ jobs:
             rm /tmp/gcp-creds.json
 
             echo "Installing Helm chart..."
-            helm upgrade --install authmanager attendme-charts/authorization-manager \
+            sudo helm upgrade --install authmanager attendme-charts/authorization-manager \
               --version "\$CHART_VERSION" \
               --namespace authmanager \
               --create-namespace \
