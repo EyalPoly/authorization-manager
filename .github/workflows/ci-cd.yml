@@ -215,17 +215,22 @@ jobs:
 
             echo "Connected via SSH"
 
-            KUBECTL="sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml $(which kubectl)"
-            HELM="sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml $(which helm)"
+            echo "Creating accessible kubeconfig for opc user..."
+            mkdir -p \$HOME/.kube
+            sudo cp /etc/rancher/k3s/k3s.yaml \$HOME/.kube/config
+            sudo chown \$(id -u):\$(id -g) \$HOME/.kube/config
+            sudo chmod 600 \$HOME/.kube/config
+            export KUBECONFIG=\$HOME/.kube/config
+
+            KUBECTL="/usr/local/bin/kubectl"
             echo "Using kubectl command: $KUBECTL"
-            echo "Using helm command: \$HELM"
             
             echo "Adding Helm repo..."
-            \$HELM repo add attendme-charts https://eyalpoly.github.io/attendme-helm-charts/
-            \$HELM repo update
+            helm repo add attendme-charts https://eyalpoly.github.io/attendme-helm-charts/
+            helm repo update
               
             echo "Fetching latest chart version..."
-            CHART_VERSION=\$(\$HELM search repo attendme-charts/authorization-manager -l | grep authorization-manager | head -n 1 | awk '{print \$2}')
+            CHART_VERSION=\$(helm search repo attendme-charts/authorization-manager -l | grep authorization-manager | head -n 1 | awk '{print \$2}')
             echo "Latest chart version: \$CHART_VERSION"
 
             if [ -z "\$CHART_VERSION" ]; then
@@ -248,7 +253,7 @@ jobs:
             rm /tmp/gcp-creds.json
 
             echo "Installing Helm chart..."
-            \$HELM upgrade --install authmanager attendme-charts/authorization-manager \
+            helm upgrade --install authmanager attendme-charts/authorization-manager \
               --version "\$CHART_VERSION" \
               --namespace authmanager \
               --create-namespace \
