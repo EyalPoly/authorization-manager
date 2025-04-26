@@ -223,8 +223,13 @@ jobs:
             helm repo update
               
             echo "Fetching latest chart version..."
-            CHART_VERSION=$(helm search repo attendme-charts/authorization-manager -l | grep authorization-manager | head -n 1 | awk '{print $2}')
+            CHART_VERSION=\$(helm search repo attendme-charts/authorization-manager -l | grep authorization-manager | head -n 1 | awk '{print $2}')
             echo "Latest chart version: \$CHART_VERSION"
+
+            if [ -z "\$CHART_VERSION" ]; then
+              echo "Error: Chart version not found!"
+              exit 1
+            fi
 
             echo "Creating JWT secret..."
             \$KUBECTL create secret generic jwt-secret \
