@@ -193,8 +193,21 @@ jobs:
             set -e  # Exit immediately if a command fails
 
             echo "Connected via SSH"
-
-            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+             
+            # Find the correct way to access kubeconfig
+            if [ -f $HOME/.kube/config ]; then
+              echo "Using user's kubeconfig"
+              export KUBECONFIG=$HOME/.kube/config
+            elif sudo test -f /etc/rancher/k3s/k3s.yaml; then
+              echo "K3s config exists but needs sudo"
+              # Create a temporary copy with proper permissions
+              sudo cat /etc/rancher/k3s/k3s.yaml > $HOME/k3s-config-temp.yaml
+              chmod 600 $HOME/k3s-config-temp.yaml
+              export KUBECONFIG=$HOME/k3s-config-temp.yaml
+            else
+              echo "Could not locate usable kubeconfig"
+              exit 1
+            fi
             
             echo "Adding Helm repo..."
             helm repo add attendme-charts https://eyalpoly.github.io/attendme-helm-charts/
