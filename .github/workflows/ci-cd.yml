@@ -223,7 +223,7 @@ jobs:
             export KUBECONFIG=\$HOME/.kube/config
 
             KUBECTL="/usr/local/bin/kubectl"
-            echo "Using kubectl command: $KUBECTL"
+            echo "Using kubectl command: \$KUBECTL"
             
             echo "Adding Helm repo..."
             helm repo add attendme-charts https://eyalpoly.github.io/attendme-helm-charts/
