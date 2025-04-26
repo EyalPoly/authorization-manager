@@ -245,7 +245,7 @@ jobs:
               --version "\$CHART_VERSION" \
               --namespace authmanager \
               --create-namespace \
-              --wai
+              --wait
             
             echo "Checking pod deployment..."
             \$KUBECTL get pods -n authmanager -o wide | grep authmanager
