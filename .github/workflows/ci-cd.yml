@@ -242,10 +242,10 @@ jobs:
 
             echo "Installing Helm chart..."
             helm upgrade --install authmanager attendme-charts/authorization-manager \
-              --version \$CHART_VERSION \
+              --version "\$CHART_VERSION" \
               --namespace authmanager \
               --create-namespace \
-              --wait
+              --wai
             
             echo "Checking pod deployment..."
             \$KUBECTL get pods -n authmanager -o wide | grep authmanager
