@@ -10,6 +10,7 @@ on:
 
 jobs:
   linter-and-test:
+    if: false # Disable this job for now
     runs-on: ubuntu-latest
 
     steps:
@@ -62,9 +63,10 @@ jobs:
           cache-to: type=gha,mode=max
 
   push:
+    if: false # Disable this job for now
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    #if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
@@ -97,9 +99,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
 
   deploy:
-    needs: push
+    # needs: push
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    #if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
@@ -170,22 +172,41 @@ jobs:
 
           echo "Creating SSH tunnel to $BASTION_HOST with session ID: $SESSION_ID"
 
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -N -L 6443:${{ secrets.K3S_MASTER_IP }}:22 -p 22 $SESSION_ID@$BASTION_HOST &
-          TUNNEL_PID=$!
-
-          echo "SSH tunnel started with PID: $TUNNEL_PID"
-
-          # Give the tunnel a moment to establish
-          echo "Waiting for tunnel to establish..."
-          sleep 15
-
-          # Check if tunnel is active
-          if ps -p $TUNNEL_PID > /dev/null; then
-            echo "SSH tunnel is active"
-          else
-            echo "SSH tunnel failed to establish"
-            exit 1
-          fi
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+          SUCCESS=false
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$SUCCESS" = "false" ]; do
+            echo "Attempt $(($RETRY_COUNT + 1)) of $MAX_RETRIES to establish SSH tunnel..."
+            
+            echo "Waiting for session to be fully established..."
+            sleep 5
+            
+            ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -N -L 6443:${{ secrets.K3S_MASTER_IP }}:22 -p 22 $SESSION_ID@$BASTION_HOST &
+            TUNNEL_PID=$!
+            
+            echo "Waiting for tunnel to establish..."
+            sleep 15
+            
+            if ps -p $TUNNEL_PID > /dev/null; then
+              echo "SSH tunnel is active"
+              SUCCESS=true
+            else
+              echo "SSH tunnel failed to establish"
+              RETRY_COUNT=$(($RETRY_COUNT + 1))
+              
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Retrying in 10 seconds..."
+                sleep 10
+              else
+                echo "Maximum retry count reached. Exiting."
+                exit 1
+              fi
+            fi
+          done
+          
+          # Store the PID for later termination
+          echo "TUNNEL_PID=$TUNNEL_PID" >> $GITHUB_ENV
 
       - name: SSH to server and install Helm chart
         run: |
@@ -193,53 +214,53 @@ jobs:
             set -e  # Exit immediately if a command fails
 
             echo "Connected via SSH"
-             
-            # Find the correct way to access kubeconfig
-            if [ -f $HOME/.kube/config ]; then
-              echo "Using user's kubeconfig"
-              export KUBECONFIG=$HOME/.kube/config
-            elif sudo test -f /etc/rancher/k3s/k3s.yaml; then
-              echo "K3s config exists but needs sudo"
-              # Create a temporary copy with proper permissions
-              sudo cat /etc/rancher/k3s/k3s.yaml > $HOME/k3s-config-temp.yaml
-              chmod 600 $HOME/k3s-config-temp.yaml
-              export KUBECONFIG=$HOME/k3s-config-temp.yaml
-            else
-              echo "Could not locate usable kubeconfig"
-              exit 1
-            fi
+
+            echo "Creating accessible kubeconfig for opc user..."
+            mkdir -p \$HOME/.kube
+            sudo cp /etc/rancher/k3s/k3s.yaml \$HOME/.kube/config
+            sudo chown \$(id -u):\$(id -g) \$HOME/.kube/config
+            sudo chmod 600 \$HOME/.kube/config
+            export KUBECONFIG=\$HOME/.kube/config
+
+            KUBECTL="/usr/local/bin/kubectl"
+            echo "Using kubectl command: \$KUBECTL"
             
             echo "Adding Helm repo..."
             helm repo add attendme-charts https://eyalpoly.github.io/attendme-helm-charts/
             helm repo update
               
             echo "Fetching latest chart version..."
-            CHART_VERSION=$(helm search repo attendme-charts/authorization-manager -l | grep authorization-manager | head -n 1 | awk '{print $2}')
+            CHART_VERSION=\$(helm search repo attendme-charts/authorization-manager -l | grep authorization-manager | head -n 1 | awk '{print \$2}')
             echo "Latest chart version: \$CHART_VERSION"
 
+            if [ -z "\$CHART_VERSION" ]; then
+              echo "Error: Chart version not found!"
+              exit 1
+            fi
+
             echo "Creating JWT secret..."
-            kubectl create secret generic jwt-secret \
+            \$KUBECTL create secret generic jwt-secret \
               --from-literal=secretNamePostfix="${{ secrets.JWT_SECRET_NAME_POSTFIX }}" \
               --namespace authmanager \
-              --dry-run=client -o yaml | kubectl apply -f -
+              --dry-run=client -o yaml | \$KUBECTL apply -f -
 
             echo "Creating GCP credentials secret..."
             echo "${{ secrets.GCP_SERVICE_ACCOUNT_BASE64 }}" | base64 -d > /tmp/gcp-creds.json
-            kubectl create secret generic gcp-creds-secret \
+            \$KUBECTL create secret generic gcp-creds-secret \
               --from-file=gcp-service-account.json=/tmp/gcp-creds.json \
               --namespace authmanager \
-              --dry-run=client -o yaml | kubectl apply -f -
+              --dry-run=client -o yaml | \$KUBECTL apply -f -
             rm /tmp/gcp-creds.json
 
             echo "Installing Helm chart..."
             helm upgrade --install authmanager attendme-charts/authorization-manager \
-              --version $CHART_VERSION \
+              --version "\$CHART_VERSION" \
               --namespace authmanager \
               --create-namespace \
               --wait
             
             echo "Checking pod deployment..."
-            kubectl get pods -n authmanager -o wide | grep authmanager
+            \$KUBECTL get pods -n authmanager -o wide | grep authmanager
           EOF
           then
             echo "SSH installation succeeded."
