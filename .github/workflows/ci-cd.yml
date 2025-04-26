@@ -179,18 +179,15 @@ jobs:
           while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$SUCCESS" = "false" ]; do
             echo "Attempt $(($RETRY_COUNT + 1)) of $MAX_RETRIES to establish SSH tunnel..."
             
-            # Increase wait time before attempting to connect
             echo "Waiting for session to be fully established..."
             sleep 5
             
             ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -N -L 6443:${{ secrets.K3S_MASTER_IP }}:22 -p 22 $SESSION_ID@$BASTION_HOST &
             TUNNEL_PID=$!
             
-            # Give the tunnel a moment to establish
             echo "Waiting for tunnel to establish..."
             sleep 15
             
-            # Check if tunnel is active
             if ps -p $TUNNEL_PID > /dev/null; then
               echo "SSH tunnel is active"
               SUCCESS=true
@@ -213,7 +210,7 @@ jobs:
 
       - name: SSH to server and install Helm chart
         run: |
-          if ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -p 6443 root@localhost << EOF
+          if ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -p 6443 opc@localhost << EOF
             set -e  # Exit immediately if a command fails
 
             echo "Connected via SSH"
