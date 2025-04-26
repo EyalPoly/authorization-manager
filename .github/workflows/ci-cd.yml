@@ -194,11 +194,6 @@ jobs:
 
             echo "Connected via SSH"
 
-            if ! command -v helm &> /dev/null; then
-              echo "Installing Helm..."
-              curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-            fi
-
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
             
             echo "Adding Helm repo..."
@@ -207,17 +202,17 @@ jobs:
               
             echo "Fetching latest chart version..."
             CHART_VERSION=$(helm search repo attendme-charts/authorization-manager -l | grep authorization-manager | head -n 1 | awk '{print $2}')
-            echo "Latest chart version: $CHART_VERSION"
+            echo "Latest chart version: \$CHART_VERSION"
 
             echo "Creating JWT secret..."
-            sudo kubectl create secret generic jwt-secret \
+            kubectl create secret generic jwt-secret \
               --from-literal=secretNamePostfix="${{ secrets.JWT_SECRET_NAME_POSTFIX }}" \
               --namespace authmanager \
               --dry-run=client -o yaml | kubectl apply -f -
 
             echo "Creating GCP credentials secret..."
             echo "${{ secrets.GCP_SERVICE_ACCOUNT_BASE64 }}" | base64 -d > /tmp/gcp-creds.json
-            sudo kubectl create secret generic gcp-creds-secret \
+            kubectl create secret generic gcp-creds-secret \
               --from-file=gcp-service-account.json=/tmp/gcp-creds.json \
               --namespace authmanager \
               --dry-run=client -o yaml | kubectl apply -f -
@@ -231,7 +226,7 @@ jobs:
               --wait
             
             echo "Checking pod deployment..."
-            sudo kubectl get pods -n authmanager -o wide | grep authmanager
+            kubectl get pods -n authmanager -o wide | grep authmanager
           EOF
           then
             echo "SSH installation succeeded."
